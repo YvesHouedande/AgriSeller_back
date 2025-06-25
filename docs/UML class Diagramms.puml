@@ -1,0 +1,244 @@
+@startuml PlateformeAgricole_Structure_Complete_Final
+skinparam linetype ortho
+skinparam nodesep 25
+skinparam ranksep 35
+skinparam classFontSize 10
+skinparam shadowing false
+
+' ##################### COMPTES #####################
+package "Accounts" #FFFBD6 {
+  class User {
+    +UUID id
+    +String role (PROD|COMM|VALID|ADMIN)
+    +String telephone
+    +String password
+    +Boolean is_verified
+    +DateTime date_inscription
+  }
+}
+
+' ##################### VALIDATEURS #####################
+package "Validateurs" #F5D6FF {
+  class Validateur {
+    +UUID id
+    +String matricule
+    +String zone_geographique
+    +Integer quota_validations
+  }
+
+  User "1" --o "1" Validateur : "extension\nde compte"
+}
+
+' ##################### LOCALISATION #####################
+package "Localisation" #D6F3FF {
+  class Pays {
+    +UUID id
+    +String nom
+    +String code_iso
+  }
+
+  class Region {
+    +UUID id
+    +String nom
+    +String code
+    +Pays pays
+  }
+
+  class Ville {
+    +UUID id
+    +String nom
+    +String code_postal
+    +Region region
+  }
+
+  Pays "1" --> "*" Region : "contient"
+  Region "1" --> "*" Ville : "contient"
+}
+
+' ##################### PRODUCTEURS #####################
+package "Producteurs" #E8D6FF {
+  abstract class BaseProducteur {
+    +UUID id
+    +Integer experience_agricole
+    +String certification
+    +Boolean actif
+  }
+
+  class ProducteurPersonnePhysique {
+    +Date date_naissance
+    +String numero_cni
+  }
+
+  class ProducteurOrganisation {
+    +String raison_sociale
+    +String type_organisation
+  }
+
+  User "1" --o "1" BaseProducteur : "extension\nde compte"
+  BaseProducteur <|-- ProducteurPersonnePhysique
+  BaseProducteur <|-- ProducteurOrganisation
+}
+
+' ##################### COMMERCANTS #####################
+package "Commercants" #FFD6E8 {
+  class Commercant {
+    +UUID id
+    +String type_commercant
+    +Integer annee_experience
+  }
+
+  User "1" --o "1" Commercant : "extension\nde compte"
+}
+
+' ##################### PRODUCTION #####################
+package "Productions" #D6FFD6 {
+  class CategorieCulture {
+    +UUID id
+    +String nom
+  }
+
+  class Culture {
+    +UUID id
+    +String nom
+    +String saison_plantation
+  }
+
+  class ExploitationAgricole {
+    +UUID id
+    +String nom
+    +Decimal superficie
+  }
+
+  class ExploitationCulture {
+    +UUID id
+    +Decimal superficie_allouee
+  }
+
+  CategorieCulture "1" --> "*" Culture : "classifie"
+  Region "1" --> "*" Culture : "zone de\nproduction"
+  BaseProducteur "1" --> "*" ExploitationAgricole : "possède"
+  ExploitationAgricole "1" --> "*" ExploitationCulture : "contient"
+  Culture "1" --> "*" ExploitationCulture : "cultivée sur"
+}
+
+' ##################### TRANSACTIONS #####################
+package "Transactions" #FFE8D6 {
+  class Offre {
+    +UUID id
+    +Decimal quantite_initiale
+    +Decimal quantite_actuelle
+    +Decimal seuil_alerte
+    +Decimal prix_unitaire
+    +String statut (BROUILLON|EN_VALIDATION|VALIDE|REJETEE)
+    +Validateur validateur
+    +DateTime date_validation
+  }
+
+  class MouvementStock {
+    +UUID id
+    +String type (ENTREE|SORTIE|AJUSTEMENT)
+    +Decimal quantite
+    +DateTime date
+  }
+
+  class Commande {
+    +UUID id
+    +Decimal quantite_demandee
+    +String statut (EN_ATTENTE|EN_COURS|PARTIELLE|COMPLETE)
+    +Validateur validateur
+  }
+
+  class PropositionProducteur {
+    +UUID id
+    +Decimal quantite_demandee
+    +Decimal quantite_confirmee
+    +String statut (PROPOSEE|CONFIRMEE|REJETEE)
+  }
+
+  class Paiement {
+    +UUID id
+    +Decimal montant
+    +String mode_paiement (MOBILE|ESPECES|VIREMENT)
+  }
+
+  ProducteurPersonnePhysique "1" --> "*" Offre : "publie"
+  ProducteurOrganisation "1" --> "*" Offre : "publie"
+  Culture "1" --> "*" Offre : "concerné par"
+  Ville "1" --> "*" Offre : "lieu de\nretrait"
+  Offre "1" *-- "*" MouvementStock : "historique"
+  Commercant "1" --> "*" Commande : "passe"
+  Commande "1" *-- "*" PropositionProducteur : "contient"
+  PropositionProducteur "1" --> "1" Offre : "référence"
+  Commande "1" --o "1" Paiement : "génère"
+  Validateur "1" --> "*" Offre : "valide"
+  Validateur "1" --> "*" Commande : "valide"
+}
+
+' ##################### NOTIFICATIONS #####################
+package "Notifications" #FFF0D6 {
+  enum NotificationType {
+    OFFRE_CREEE
+    OFFRE_VALIDEE
+    OFFRE_REJETEE
+    COMMANDE_CREEE
+    COMMANDE_EN_COURS
+    COMMANDE_TERMINEE
+    NOUVELLE_PROPOSITION
+    PROPOSITION_CONFIRMEE
+    ALERTE_STOCK
+  }
+
+  class Notification {
+    +UUID id
+    +NotificationType type
+    +String titre
+    +String message
+    +JSON metadata
+    +DateTime date_creation
+    +Boolean is_read
+  }
+
+  User "1" --> "*" Notification : "reçoit"
+  Offre "1" --> "*" Notification : "génère"
+  Commande "1" --> "*" Notification : "génère"
+  PropositionProducteur "1" --> "*" Notification : "génère"
+  Validateur "1" --> "*" Notification : "déclenche"
+}
+
+' ##################### LÉGENDE #####################
+legend top right
+  | Package | Couleur |
+  |---|---|
+  | Accounts | #FFFBD6 |
+  | Validateurs | #F5D6FF |
+  | Localisation | #D6F3FF |
+  | Producteurs | #E8D6FF |
+  | Commercants | #FFD6E8 |
+  | Productions | #D6FFD6 |
+  | Transactions | #FFE8D6 |
+  | Notifications | #FFF0D6 |
+endlegend
+
+note bottom of Validateur
+  <b>Rôle des validateurs :</b>
+  - Validation des offres
+  - Approbation des commandes
+  - Gestion des litiges
+  - Zone géographique assignée
+end note
+
+note top of Offre
+  <b>Workflow Offre :</b>
+  1. Création (BROUILLON)
+  2. Soumission (EN_VALIDATION)
+  3. Validation par un validateur
+  4. Notification du résultat
+end note
+
+note right of Notification
+  <b>Flux de notifications :</b>
+  - Offres : Validateur → Producteur
+  - Commandes : Validateur → Commerçant
+  - Propositions : Système → Producteur
+end note
+@enduml

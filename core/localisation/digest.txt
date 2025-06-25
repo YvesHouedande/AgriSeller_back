@@ -1,0 +1,109 @@
+Directory structure:
+└── localisation/
+    ├── __init__.py
+    ├── admin.py
+    ├── apps.py
+    ├── models.py
+    ├── tests.py
+    ├── views.py
+
+
+================================================
+File: __init__.py
+================================================
+
+
+
+================================================
+File: admin.py
+================================================
+from django.contrib import admin
+
+# Register your models here.
+
+
+
+================================================
+File: apps.py
+================================================
+from django.apps import AppConfig
+
+
+class LocalisationConfig(AppConfig):
+    default_auto_field = 'django.db.models.BigAutoField'
+    name = 'core.localisation'
+    label = 'core_localisation'
+
+
+
+================================================
+File: models.py
+================================================
+from django.db import models
+
+# Create your models here.
+from django.db import models
+import uuid
+
+class Pays(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    nom = models.CharField(max_length=100, unique=True)
+    code_iso = models.CharField(max_length=3, unique=True)
+    
+    class Meta:
+        verbose_name = "Pays"
+        verbose_name_plural = "Pays"
+        ordering = ['nom']
+    
+    def __str__(self):
+        return self.nom
+
+class Region(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    nom = models.CharField(max_length=100, unique=True)
+    code = models.CharField(max_length=10, unique=True)
+    pays = models.ForeignKey(Pays, on_delete=models.CASCADE)
+    description = models.TextField(blank=True)
+    
+    class Meta:
+        verbose_name = "RÃ©gion"
+        verbose_name_plural = "RÃ©gions"
+        ordering = ['nom']
+    
+    def __str__(self):
+        return f"{self.nom} ({self.pays.nom})"
+
+class Ville(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    nom = models.CharField(max_length=100)
+    region = models.ForeignKey(Region, on_delete=models.CASCADE)
+    code_postal = models.CharField(max_length=10, blank=True)
+    
+    class Meta:
+        verbose_name = "Ville"
+        verbose_name_plural = "Villes"
+        ordering = ['nom']
+        unique_together = ['nom', 'region']
+    
+    def __str__(self):
+        return f"{self.nom} ({self.region.nom})"
+
+
+================================================
+File: tests.py
+================================================
+from django.test import TestCase
+
+# Create your tests here.
+
+
+
+================================================
+File: views.py
+================================================
+from django.shortcuts import render
+
+# Create your views here.
+
+
+

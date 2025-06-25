@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    environment:
+      - DJANGO_SETTINGS_MODULE=AgriSeller_back.settings
+      - DEBUG=1
+    # command: >
+    #   sh -c "python manage.py migrate &&
+    #          daphne -b 0.0.0.0 -p 8000 AgriSeller_back.asgi:application"
+    command: python manage.py runserver 0.0.0.0:8000 # pour le dev
+
+  db:
+    image: postgres:15-alpine
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    env_file:
+      - .env
+    healthcheck:
+      test: |
+         PGPASSWORD="$$DATABASE_PASSWORD" pg_isready -U "$$DATABASE_USER" -d "$$DATABASE_NAME"
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
