@@ -21,6 +21,9 @@ CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS', '').split(',')
 # Application definition
 
 INSTALLED_APPS = [
+    # Doit être en premier pour les websockets
+    'daphne',
+
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -28,21 +31,24 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
 
+    # Pour les API REST
     'rest_framework',
     'rest_framework_simplejwt', 
     'rest_framework_simplejwt.token_blacklist',
     'drf_spectacular',
     'corsheaders',
+
+    # websocket
+    'channels', 
     
     # Vos apps(custom apps using the core module)
     'core',
     'core.accounts',
     'core.localisation',
     'core.producteurs', 
-    # 'core.productions',
-    # 'core.commercants',
-    # # 'core.validation',
-    # 'core.transactions',
+    'core.commercants',
+    'core.productions',
+    'core.transactions',
     'core.notifications',
 
 ]
@@ -139,7 +145,7 @@ AUTH_PASSWORD_VALIDATORS = [
 # Configuration DRF
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
-        "rest_framework_simplejwt.authentication.JWTAuthentication",  # Authentification JWT
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
     ),
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticatedOrReadOnly',
@@ -148,6 +154,8 @@ REST_FRAMEWORK = {
         'django_filters.rest_framework.DjangoFilterBackend'
     ],
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 5, 
 }
 
 SPECTACULAR_SETTINGS = {

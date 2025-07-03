@@ -3,10 +3,9 @@ import uuid
 from core.accounts.models import User
 from core.localisation.models import Ville
 from core.producteurs.models import ProducteurPersonnePhysique, ProducteurOrganisation
-from core.cultures.models import Culture
-from core.transactions.models import Commande
-from core.validation.models import Validation
-
+# from core.transactions.models import Commande
+# from core.validation.models import Validation
+from core.productions.models import Culture
 
 
 class Offre(models.Model):
@@ -36,7 +35,7 @@ class Offre(models.Model):
     )
     
     # Détails du produit
-    culture = models.ForeignKey(Culture, on_delete=models.PROTECT)
+    culture = models.ForeignKey(Culture, on_delete=models.PROTECT, null=True, blank=True, help_text="Culture associée à l'offre")
     quantite_initiale = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     seuil_alerte = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     unite = models.CharField(max_length=10, choices=UNITES)
@@ -48,10 +47,10 @@ class Offre(models.Model):
     
     
     # Localisation
-    lieu_retrait = models.ForeignKey(Ville, on_delete=models.CASCADE)
+    lieu_retrait = models.ForeignKey(Ville, on_delete=models.CASCADE, null=True, blank=True, help_text="Ville où le produit peut être retiré")
     
     # Image
-    photo_produit = models.ImageField(upload_to='offres/', blank=True)
+    photo_produit = models.ImageField(upload_to='offres/', blank=True, null=True, help_text="Photo du produit ou de l'offre")
     
     # Dates
     date_publication = models.DateTimeField(auto_now_add=True)
@@ -77,13 +76,13 @@ class Offre(models.Model):
         """Retourne le producteur quel que soit son type"""
         return self.producteur_physique or self.producteur_organisation
     
-    def save(self, *args, **kwargs):
-        """Validation : un seul type de producteur doit être défini"""
-        if not (self.producteur_physique or self.producteur_organisation):
-            raise ValueError("Un producteur (physique ou organisation) doit être spécifié")
-        if self.producteur_physique and self.producteur_organisation:
-            raise ValueError("Uniquement un type de producteur peut être spécifié")
-        super().save(*args, **kwargs)
+    # def save(self, *args, **kwargs):
+    #     """Validation : un seul type de producteur doit être défini"""
+    #     if not (self.producteur_physique or self.producteur_organisation):
+    #         raise ValueError("Un producteur (physique ou organisation) doit être spécifié")
+    #     if self.producteur_physique and self.producteur_organisation:
+    #         raise ValueError("Uniquement un type de producteur peut être spécifié")
+    #     super().save(*args, **kwargs)
     
     def __str__(self):
         return f"{self.nom_produit} par {self.producteur}"
@@ -133,46 +132,32 @@ class MouvementStock(models.Model):
         ordering = ['-date']
 
 
-
 class Commande(models.Model):
-    STATUT_CHOICES = [
-        ('CONFIRMEE', 'Confirmée'),
-        ('EN_COURS', 'En cours'),
-        ('EN_ATENTE', 'En attente'),
-        ('LIVREE', 'Livrée'),
-        ('ANNULEE', 'Annulée')
-    ]
+    class Statut(models.TextChoices):
+        EN_ATTENTE = 'EN_ATTENTE', 'En attente'
+        VALIDEE = 'VALIDEE', 'Validée'
+        EN_COURS = 'EN_COURS', 'En cours'
+        TERMINEE = 'TERMINEE', 'Terminée'
+        ANNULEE = 'ANNULEE', 'Annulée'
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    offre = models.ForeignKey(Offre, on_delete=models.CASCADE, related_name='commandes')
-    client = models.ForeignKey(User, on_delete=models.CASCADE, related_name='commandes')
-    quantite = models.DecimalField(max_digits=10, decimal_places=2)
-    statut = models.CharField(max_length=20, choices=STATUT_CHOICES, default='EN_ATTENTE')
-    date_commande = models.DateTimeField(auto_now_add=True)
-    date_livraison = models.DateTimeField(null=True, blank=True)
-    
+    offre = models.ForeignKey(Offre, on_delete=models.PROTECT, related_name='commandes')
+    client = models.ForeignKey(User, on_delete=models.PROTECT, related_name='commandes_client')
+    validateur = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name='commandes_validees')
+    quantite = models.PositiveIntegerField()
+    date_creation = models.DateTimeField(auto_now_add=True, null=True, blank=True)
+    date_maj = models.DateTimeField(auto_now=True)
+    statut = models.CharField(max_length=20, choices=Statut.choices, default=Statut.EN_ATTENTE)
+
+
     class Meta:
-        verbose_name = "Commande"
-        verbose_name_plural = "Commandes"
-        ordering = ['-date_commande']
-    
+        ordering = ['-date_creation']
+        permissions = [
+            ('valider_commande', 'Peut valider une commande'),
+        ]
+
     def __str__(self):
-        return f"Commande #{self.id} - {self.offre.nom_produit} pour {self.client.username}"
-
-        def quantite_restante(self):
-        return self.quantite_demandee - sum(
-            p.quantite_confirmee 
-            for p in self.propositions.filter(statut='VALIDE_CENTRE')
-        )
-
-    def trouver_offres_complementaires(self):
-        from django.db.models import Q
-        
-        return Offre.objects.filter(
-            Q(culture=self.produit) &
-            Q(quantite_actuelle__gt=0) &
-            ~Q(id__in=self.propositions.values('offre_id'))
-        ).order_by('prix_unitaire')
+        return f"CMD-{self.id}"
 
 
 class PropositionProducteur(models.Model):

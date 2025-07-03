@@ -1,7 +1,10 @@
+# accounts/models.py
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
 import uuid
 from django.core.validators import RegexValidator
+from core.producteurs.models import ProducteurPersonnePhysique, ProducteurOrganisation
+from core.commercants.models import AcheteurPersonnePhysique, AcheteurOrganisation 
 
 
 class UserManager(BaseUserManager):
@@ -51,7 +54,7 @@ class User(AbstractUser):
 
     class Role(models.TextChoices):
         PRODUCTEUR = 'PROD', 'Producteur'
-        COMMERCANT = 'COMM', 'Commerçant'
+        COMMERCANT = 'ACHE', 'Acheteur'
         VALIDATEUR = 'VALID', 'Validateur'
         ADMIN = 'ADMIN', 'Administrateur'
     
@@ -106,3 +109,72 @@ class User(AbstractUser):
     class Meta:
         verbose_name = 'Utilisateur'
         verbose_name_plural = 'Utilisateurs'
+
+    def get_producteur(self):
+        """Retourne le producteur associé à cet utilisateur s'il existe"""
+        try:
+            return self.producteurpersonnephysique
+        except ProducteurPersonnePhysique.DoesNotExist:
+            try:
+                return self.producteurorganisation
+            except ProducteurOrganisation.DoesNotExist:
+                return None
+    
+    def get_producteur_type(self):
+        """Retourne le type de producteur ou None"""
+        if hasattr(self, 'producteurpersonnephysique'):
+            return 'personne_physique'
+        elif hasattr(self, 'producteurorganisation'):
+            return 'organisation'
+        return None
+
+
+    def get_producteur_ville(self):
+        """Retourne la ville associée à l'utilisateur"""
+        return self.get_producteur().ville.nom if self.get_producteur() else None
+    
+    def get_producteur_region(self):
+        """Retourne la région associée à l'utilisateur"""
+        return self.get_producteur().region.nom if self.get_producteur() else None
+
+    def get_producteur_pays(self):
+        """Retourne le pays associé à l'utilisateur"""
+        return self.get_producteur().pays.nom if self.get_producteur() else None
+
+    def get_producteur_addresse(self):
+        """Retourne l'adresse associée à l'utilisateur"""
+        return self.get_producteur().adresse.nom if self.get_producteur() else None 
+
+    def get_acheteur(self):
+        """Retourne l'acheteur associé à cet utilisateur s'il existe"""
+        try:
+            return self.acheteurpersonnephysique
+        except AcheteurPersonnePhysique.DoesNotExist:
+            try:
+                return self.acheteurorganisation
+            except AcheteurOrganisation.DoesNotExist:
+                return None
+    
+    def get_acheteur_type(self):
+        """Retourne le type d'acheteur ou None"""
+        if hasattr(self, 'acheteurpersonnephysique'):
+            return 'personne_physique'
+        elif hasattr(self, 'acheteurorganisation'):
+            return 'organisation'
+        return None
+
+    def get_acheteur_ville(self):
+        """Retourne la ville associée à l'acheteur"""
+        return self.get_acheteur().ville.nom if self.get_acheteur() else None
+
+    def get_acheteur_region(self):
+        """Retourne la région associée à l'acheteur"""
+        return self.get_acheteur().region.nom if self.get_acheteur() else None
+
+    def get_acheteur_pays(self):
+        """Retourne le pays associé à l'acheteur"""
+        return self.get_acheteur().pays.nom if self.get_acheteur() else None
+
+    def get_acheteur_addresse(self):
+        """Retourne l'adresse associée à l'acheteur"""
+        return self.get_acheteur().adresse.nom if self.get_acheteur() else None

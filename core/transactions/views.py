@@ -1,79 +1,161 @@
-from rest_framework import viewsets, permissions, status
-from rest_framework.decorators import action
+from rest_framework import viewsets, status
 from rest_framework.response import Response
-from core.transactions.models import Offre, MouvementStock, Commande, PropositionProducteur
-from core.transactions.serializers import (
-    OffreSerializer, 
-    MouvementStockSerializer,
-    CommandeSerializer,
-    PropositionProducteurSerializer
-)
-from core.accounts.models import User
-from django.shortcuts import get_object_or_404
+from rest_framework.decorators import action
+from rest_framework.permissions import IsAuthenticated
+from .models import Offre, MouvementStock, Commande
+from .serializers import OffreSerializer, MouvementStockSerializer, CreateOffreSerializer
+from core.notifications.services import create_and_send_notification, notify_validators, send_notification_to_user
+from core.transactions.permissions import IsClientOrValidateur
+from .serializers import CommandeSerializer, UpdateStatutSerializer
 
 class OffreViewSet(viewsets.ModelViewSet):
     queryset = Offre.objects.filter(est_active=True)
-    serializer_class = OffreSerializer
-    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAuthenticated]
 
-    def perform_create(self, serializer):
-        serializer.save(
-            producteur_physique=self.request.user.producteur_personnephysique,
-            producteur_organisation=self.request.user.producteur_organisation
-        )
-
-    @action(detail=True, methods=['post'])
-    def ajuster_stock(self, request, pk=None):
-        offre = self.get_object()
-        quantite = request.data.get('quantite')
-        notes = request.data.get('notes', '')
-
-        mouvement = MouvementStock.objects.create(
-            offre=offre,
-            type_mouvement='AJUSTEMENT',
-            quantite=quantite,
-            utilisateur=request.user,
-            notes=notes
-        )
-
-        return Response({
-            'status': 'stock ajusté',
-            'quantite_actuelle': offre.quantite_actuelle
-        })
-
-class CommandeViewSet(viewsets.ModelViewSet):
-    serializer_class = CommandeSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return CreateOffreSerializer
+        return OffreSerializer
 
     def get_queryset(self):
         user = self.request.user
-        return Commande.objects.filter(client=user).order_by('-date_commande')
+        queryset = super().get_queryset()
+        
+        # Producteurs voient leurs offres
+        if hasattr(user, 'producteur_personnephysique'):
+            return queryset.filter(producteur_physique=user.producteur_personnephysique)
+        elif hasattr(user, 'producteur_organisation'):
+            return queryset.filter(producteur_organisation=user.producteur_organisation)
+        
+        # Validateurs voient toutes les offres non validées
+        if user.role == 'VALID':
+            return queryset.filter(est_valide=False)
+            
+        return queryset.none()
+
+    @action(detail=True, methods=['post'])
+    def valider(self, request, pk=None):
+        offre = self.get_object()
+        offre.est_valide = True
+        offre.save()
+        
+        # Notification au producteur
+        create_and_send_notification(
+            offre.producteur.user,
+            'OFFRE_VALIDEE',
+            'Offre validée',
+            f"Votre offre {offre.nom_produit} a été validée",
+            {'offre_id': str(offre.id)}
+        )
+        
+        return Response({'status': 'offre validée'})
+
+    @action(detail=True, methods=['post'])
+    def rejeter(self, request, pk=None):
+        offre = self.get_object()
+        raison = request.data.get('raison', '')
+        offre.est_active = False
+        offre.save()
+        
+        # Notification au producteur
+        create_and_send_notification(
+            offre.producteur.user,
+            'OFFRE_REJETEE',
+            'Offre rejetée',
+            f"Votre offre {offre.nom_produit} a été rejetée. Raison: {raison}",
+            {'offre_id': str(offre.id), 'raison': raison}
+        )
+        
+        return Response({'status': 'offre rejetée'})
+
+class MouvementStockViewSet(viewsets.ModelViewSet):
+    serializer_class = MouvementStockSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return MouvementStock.objects.filter(offre__producteur__user=self.request.user)
 
     def perform_create(self, serializer):
-        serializer.save(client=self.request.user)
+        mouvement = serializer.save(utilisateur=self.request.user)
+        
+        # Notification si stock faible
+        if mouvement.offre.quantite_actuelle < mouvement.offre.seuil_alerte:
+            create_and_send_notification(
+                mouvement.offre.producteur.user,
+                'STOCK_FAIBLE',
+                'Stock faible',
+                f"Le stock de {mouvement.offre.nom_produit} est faible",
+                {'offre_id': str(mouvement.offre.id)}
+            )
+
+
+
+class CommandeViewSet(viewsets.ModelViewSet):
+    queryset = Commande.objects.select_related('offre', 'client')
+    serializer_class = CommandeSerializer
+    permission_classes = [IsAuthenticated, IsClientOrValidateur]
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        if self.request.user.role == 'CLIENT':
+            return qs.filter(client=self.request.user)
+        return qs
+
+    def perform_create(self, serializer):
+        commande = serializer.save(client=self.request.user)
+        self._notify_creation(commande)
+
+    @action(detail=True, methods=['post'], serializer_class=UpdateStatutSerializer)
+    def valider(self, request, pk=None):
+        commande = self.get_object()
+        serializer = self.get_serializer(commande, data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        commande = serializer.save(
+            statut='VALIDEE',
+            validateur=request.user
+        )
+        self._notify_client(commande, 'validée')
+        return Response(serializer.data)
 
     @action(detail=True, methods=['post'])
     def annuler(self, request, pk=None):
         commande = self.get_object()
-        if commande.client != request.user:
-            return Response({'error': 'Non autorisé'}, status=status.HTTP_403_FORBIDDEN)
-        
         commande.statut = 'ANNULEE'
         commande.save()
-        return Response({'status': 'commande annulée'})
+        
+        if commande.client == request.user:
+            self._notify_validateurs_annulation(commande)
+        return Response({'status': 'annulée'})
 
-class PropositionProducteurViewSet(viewsets.ModelViewSet):
-    serializer_class = PropositionProducteurSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    # Méthodes de notification privées
+    def _notify_creation(self, commande):
+        notify_validators(
+            'COMMANDE_CREEE',
+            f'Nouvelle commande CMD-{commande.id}',
+            f"Client: {commande.client.email} | Produit: {commande.offre.nom_produit}",
+            {'commande_id': commande.id}
+        )
 
-    def get_queryset(self):
-        user = self.request.user
-        return PropositionProducteur.objects.filter(
-            commande__client=user
-        ).order_by('-commande__date_commande')
+    def _notify_client(self, commande, action):
+        send_notification_to_user(
+            commande.client.id,
+            {
+                'type': 'COMMANDE_MAJ',
+                'title': f'Commande {action}',
+                'message': f'Votre commande CMD-{commande.id} a été {action}',
+            'metadata': {
+                'commande_id': str(commande.id),  
+                'offre_id': str(commande.offre.id) if commande.offre else None
+            }
+            }
+        )
 
-    @action(detail=True, methods=['post'])
-    def valider(self, request, pk=None):
-        proposition = self.get_object()
-        # Logique de validation complexe à implémenter
-        return Response({'status': 'validé'})
+    def _notify_validateurs_annulation(self, commande):
+        notify_validators(
+            'COMMANDE_ANNULEE',
+            f'Annulation CMD-{commande.id}',
+            f"Annulée par le client: {commande.client.email}",
+            {'commande_id': commande.id}
+        )
+

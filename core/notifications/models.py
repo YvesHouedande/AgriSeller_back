@@ -7,8 +7,8 @@ class Notification(models.Model):
         OFFRE_VALIDEE = 'OFFRE_VALIDEE', 'Offre validée'
         OFFRE_REJETEE = 'OFFRE_REJETEE', 'Offre rejetée'
         COMMANDE_CREEE = 'COMMANDE_CREEE', 'Nouvelle commande'
-        COMMANDE_EN_COURS = 'COMMANDE_EN_COURS', 'Commande en traitement'
-        COMMANDE_TERMINEE = 'COMMANDE_TERMINEE', 'Commande terminée'
+        COMMANDE_ANNULLEE = 'COMMANDE_ANNULLEE', 'Commande annulée'
+        COMMANDE_MAJ = 'COMMANDE_MAJ', 'Mise à jour de commande'
         NOUVELLE_PROPOSITION = 'NOUVELLE_PROPOSITION', 'Nouvelle proposition'
         PROPOSITION_CONFIRMEE = 'PROPOSITION_CONFIRMEE', 'Proposition confirmée'
 

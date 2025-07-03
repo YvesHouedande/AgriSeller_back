@@ -1,7 +1,7 @@
+# core/producteurs/models.py
 from django.db import models
 import uuid
 from django.core.validators import RegexValidator
-from core.accounts.models import User
 from core.localisation.models import Ville, Region, Pays 
 
 class BaseProducteur(models.Model):
@@ -13,9 +13,9 @@ class BaseProducteur(models.Model):
         ('permaculture', 'Permaculture'),
     ]
     
-    # Champs communs
+    # Champs communs  
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    user = models.OneToOneField('core_accounts.User', on_delete=models.CASCADE)  
     
     # Informations professionnelles
     experience_agricole = models.PositiveIntegerField(
@@ -29,11 +29,6 @@ class BaseProducteur(models.Model):
     )
     
     # Contact et réseaux
-    telephone = models.CharField(
-        max_length=15,
-        validators=[RegexValidator(regex=r'^\+?[0-9]{9,15}$')],
-        blank=True
-    )
     site_web = models.URLField(blank=True)
     facebook = models.CharField(max_length=100, blank=True)
     whatsapp = models.CharField(max_length=15, blank=True)

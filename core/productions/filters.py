@@ -1,4 +1,3 @@
-# productions/filters.py
 import django_filters
 from core.productions.models import Culture, ExploitationAgricole
 

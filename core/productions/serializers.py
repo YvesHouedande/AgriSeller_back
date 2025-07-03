@@ -1,16 +1,11 @@
-# productions/serializers.py
 from rest_framework import serializers
-from core.productions.models import (
+from .models import (
     CategorieCulture,
     Culture,
     ExploitationAgricole,
     ExploitationCulture
 )
 from core.localisation.serializers import RegionSerializer
-from core.producteurs.serializers import (
-    ProducteurPhysiqueSerializer,
-    ProducteurOrganisationSerializer
-)
 
 class CategorieCultureSerializer(serializers.ModelSerializer):
     class Meta:
@@ -18,34 +13,42 @@ class CategorieCultureSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class CultureSerializer(serializers.ModelSerializer):
+    regions = RegionSerializer(many=True, read_only=True)
     categorie = CategorieCultureSerializer()
-    regions = RegionSerializer(many=True)
-    
+
     class Meta:
         model = Culture
         fields = '__all__'
-        read_only_fields = ('id',)
+        read_only_fields = ('id', 'date_creation', 'date_maj')
 
 class ExploitationAgricoleSerializer(serializers.ModelSerializer):
     producteur_details = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = ExploitationAgricole
-        fields = '__all__'
-        read_only_fields = ('id', 'date_creation')
-    
+        exclude = ('producteur_physique', 'producteur_organisation')
+        read_only_fields = ('id', 'date_creation', 'date_maj')
+
     def get_producteur_details(self, obj):
-        if obj.producteur_physique:
-            return ProducteurPhysiqueSerializer(obj.producteur_physique).data
-        elif obj.producteur_organisation:
-            return ProducteurOrganisationSerializer(obj.producteur_organisation).data
-        return None
+        producteur = obj.producteur
+        if hasattr(producteur, 'user'):
+            return {
+                'type': 'physique',
+                'nom': producteur.user.get_full_name(),
+                'telephone': producteur.user.telephone
+            }
+        else:
+            return {
+                'type': 'organisation',
+                'raison_sociale': producteur.raison_sociale,
+                'telephone': producteur.user.telephone
+            }
 
 class ExploitationCultureSerializer(serializers.ModelSerializer):
     culture = CultureSerializer()
-    exploitation = ExploitationAgricoleSerializer()
-    
+    exploitation = serializers.StringRelatedField()
+
     class Meta:
         model = ExploitationCulture
         fields = '__all__'
-        read_only_fields = ('id',)
+        read_only_fields = ('id', 'date_creation', 'date_maj')

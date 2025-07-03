@@ -1,76 +1,63 @@
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
-from django.utils import timezone
 from .models import Notification
+from django.contrib.auth import get_user_model
 
-class NotificationService:
-    
-    @classmethod
-    def _send_ws_notification(cls, user, notification_data):
-        channel_layer = get_channel_layer()
-        async_to_sync(channel_layer.group_send)(
-            f"notifs_{user.id}",
-            {
-                "type": "send.notification",
-                "notification": notification_data
-            }
-        )
+User = get_user_model()
 
-    @classmethod
-    def create_notification(cls, user, notif_type, title, message, metadata=None):
-        """Crée et envoie une notification"""
-        notification = Notification.objects.create(
-            user=user,
-            type=notif_type,
-            title=title,
-            message=message,
-            metadata=metadata or {}
-        )
-        
-        # Préparer les données pour WebSocket
-        ws_data = {
-            'id': str(notification.id),
-            'type': notif_type,
-            'title': title,
-            'message': message,
-            'timestamp': timezone.now().isoformat(),
-            'metadata': metadata or {}
+# Fonction pour envoyer une notification à un utilisateur via WebSocket
+def send_notification_to_user(user_id, notification_data):
+    """ Focntion de base utilisee par les autres fonctions pour envoyer une notification via WebSocket """
+    channel_layer = get_channel_layer()
+    async_to_sync(channel_layer.group_send)(
+        f"user_{user_id}",
+        {
+            "type": "send_notification",
+            "content": notification_data
         }
-        
-        # Envoyer via WebSocket
-        cls._send_ws_notification(user, ws_data)
-        
-        return notification
+    )
+    print(f"Notification sent to user {user_id}: {notification_data}")
 
-    # Cas spécifiques
-    @classmethod
-    def notifier_creation_offre(cls, offre):
-        validateurs = User.objects.filter(role='VALID', zone=offre.ville.region)
-        for validateur in validateurs:
-            cls.create_notification(
-                user=validateur,
-                notif_type=Notification.NotificationType.OFFRE_CREEE,
-                title="Nouvelle offre à valider",
-                message=f"Offre #{offre.id} - {offre.culture.nom}",
-                metadata={
-                    'offre_id': str(offre.id),
-                    'action_url': f"/offres/{offre.id}/valider"
-                }
-            )
+# Fonction pour créer et envoyer une notification à un utilisateur
+def create_and_send_notification(user, notification_type, title, message, metadata={}):
+    """Utilise la fonction de base pour envoyer une notification à un utilisateur 
+        aprés avoir creéé la notification dans la base de données.
+    """
+    notification = Notification.objects.create(
+        user=user,
+        type=notification_type,
+        title=title,
+        message=message,
+        metadata=metadata
+    )
+    
+    send_notification_to_user(
+        user.id,
+        {
+            "id": str(notification.id),
+            "type": notification.type,
+            "title": notification.title,
+            "message": notification.message,
+            "is_read": notification.is_read,
+            "created_at": notification.created_at.isoformat(),
+            "metadata": notification.metadata
+        }
+    )
+    return notification
 
-    @classmethod
-    def notifier_validation_offre(cls, offre, est_validee):
-        notif_type = (Notification.NotificationType.OFFRE_VALIDEE if est_validee
-                     else Notification.NotificationType.OFFRE_REJETEE)
-        cls.create_notification(
-            user=offre.producteur.user,
-            notif_type=notif_type,
-            title="Statut de votre offre",
-            message=f"Votre offre #{offre.id} a été {'validée' if est_validee else 'rejetée'}",
-            metadata={
-                'offre_id': str(offre.id),
-                'raison': getattr(offre, 'motif_rejet', None)
-            }
+def notify_validators(notification_type, title, message, metadata={}):
+    # Convertir tous les UUID en strings dans le metadata
+    serializable_metadata = {
+        k: str(v) if hasattr(v, 'hex') else v 
+        for k, v in metadata.items()
+    }
+    validators = User.objects.filter(role='VALID', is_active=True)[:10]  # Limite à 10 validateurs actifs
+    for validator in validators:
+        create_and_send_notification(
+            validator,
+            notification_type,
+            title,
+            message,
+            serializable_metadata
         )
 
-    # ... Ajouter toutes les autres méthodes pour vos scénarios

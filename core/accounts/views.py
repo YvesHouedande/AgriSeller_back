@@ -2,13 +2,17 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
-from .docs.auth_docs import LOGIN_DOCS, REGISTER_DOCS
 from .serializers import CustomTokenSerializer, UserRegisterSerializer
-from drf_spectacular.utils import extend_schema_view, extend_schema
 from django.core.exceptions import ValidationError as DjangoValidationError
-from rest_framework.exceptions import ValidationError as DRFValidationError
+from rest_framework.permissions import IsAuthenticated
+from .serializers import CompletudeProducteurSerializer
+from rest_framework.views import APIView
+from django_filters import rest_framework as filters
+from .serializers import UserProducteurListSerializer, UserAcheteurListSerializer
+from .filters import UserProducteurFilter, UserAcheteurFilter
+from .models import User 
 
-# @extend_schema_view(post=LOGIN_DOCS)
+
 class LoginView(TokenObtainPairView):
     """
     Endpoint de connexion principal. 
@@ -55,3 +59,82 @@ class RegisterView(generics.CreateAPIView):
                 "error": "Erreur lors de la création du compte",
                 "details": str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class VerificationCompletudeView(APIView):
+    """
+    Vérifie la complétude du profil producteur de l'utilisateur connecté. 
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user 
+        data = {
+            "complet": True,
+            "champs_manquants": [],
+            "pourcentage_completion": 100
+        }
+
+        # Vérification pour producteur physique
+        if hasattr(user, 'producteurpersonnephysique'):
+            producteur = user.producteurpersonnephysique
+            data["type_producteur"] = "physique"
+            champs_obligatoires = [
+                'experience_agricole', 'certification',
+                'adresse', 'ville', 'region', 'pays'
+            ]
+            
+        # Vérification pour producteur organisation
+        elif hasattr(user, 'producteurorganisation'):
+            producteur = user.producteurorganisation
+            data["type_producteur"] = "organisation"
+            champs_obligatoires = [
+                'raison_sociale', 'type_organisation',
+                'nom_dirigeant', 'fonction_dirigeant',
+                'adresse', 'ville', 'region', 'pays'
+            ]
+        else:
+            return Response(
+                {"detail": "L'utilisateur n'a pas de profil producteur"},
+                status=400
+            )
+
+        # Vérification des champs
+        champs_manquants = []
+        for champ in champs_obligatoires:
+            if not getattr(producteur, champ):
+                champs_manquants.append(champ)
+
+        if champs_manquants:
+            data["complet"] = False
+            data["champs_manquants"] = champs_manquants
+            data["pourcentage_completion"] = int(
+                (len(champs_obligatoires) - len(champs_manquants)) / len(champs_obligatoires) * 100)
+                
+        serializer = CompletudeProducteurSerializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        return Response(serializer.data) 
+
+
+class UserProducteurListView(generics.ListAPIView):
+    serializer_class = UserProducteurListSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [filters.DjangoFilterBackend]
+    filterset_class = UserProducteurFilter
+    
+    def get_queryset(self):
+        queryset = User.objects.filter(role='PROD').order_by('-date_inscription')
+        return queryset
+
+class UserAcheteurListView(generics.ListAPIView):
+    """
+    Liste des utilisateurs acheteurs avec filtrage et recherche.
+    """
+    serializer_class = UserAcheteurListSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [filters.DjangoFilterBackend]
+    filterset_class = UserAcheteurFilter
+    
+    def get_queryset(self):
+        queryset = User.objects.filter(role='ACHE').order_by('-date_inscription')
+        return queryset

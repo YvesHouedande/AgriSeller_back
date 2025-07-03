@@ -1,6 +1,5 @@
-# productions/admin.py
 from django.contrib import admin
-from core.productions.models import (
+from .models import (
     CategorieCulture,
     Culture,
     ExploitationAgricole,
@@ -13,28 +12,23 @@ class ExploitationCultureInline(admin.TabularInline):
 
 @admin.register(CategorieCulture)
 class CategorieCultureAdmin(admin.ModelAdmin):
-    list_display = ('nom',)
-    search_fields = ('nom', 'description')
+    list_display = ('nom', 'date_creation')
+    search_fields = ('nom',)
 
 @admin.register(Culture)
 class CultureAdmin(admin.ModelAdmin):
-    list_display = ('nom', 'categorie', 'saison_plantation', 'duree_cycle', 'active')
-    list_filter = ('categorie', 'saison_plantation', 'active')
-    search_fields = ('nom', 'nom_scientifique')
+    list_display = ('nom', 'categorie', 'saison_plantation')
+    list_filter = ('categorie', 'saison_plantation')
     filter_horizontal = ('regions',)
 
 @admin.register(ExploitationAgricole)
 class ExploitationAgricoleAdmin(admin.ModelAdmin):
-    list_display = ('nom', 'producteur', 'superficie', 'type_propriete', 'statut')
+    list_display = ('nom', 'producteur', 'superficie', 'statut')
     list_filter = ('statut', 'type_propriete')
-    search_fields = ('nom', 'adresse')
     inlines = [ExploitationCultureInline]
-
-    def producteur(self, obj):
-        return obj.producteur_physique or obj.producteur_organisation
+    raw_id_fields = ('producteur_physique', 'producteur_organisation')
 
 @admin.register(ExploitationCulture)
 class ExploitationCultureAdmin(admin.ModelAdmin):
-    list_display = ('exploitation', 'culture', 'methode', 'superficie_allouee')
-    list_filter = ('methode', 'culture')
-    search_fields = ('exploitation__nom', 'culture__nom')
+    list_display = ('culture', 'exploitation', 'date_plantation')
+    list_filter = ('methode',)

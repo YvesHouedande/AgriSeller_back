@@ -12,3 +12,6 @@ pytest --cov=core.accounts --cov-report=html
 
 # Accéder au bash du connteneur backend
 docker-compose exec web bash
+
+# Adrresse websoket( connexion)
+ws://localhost:8000/ws/notifications/?token=<token_utilisateur>
