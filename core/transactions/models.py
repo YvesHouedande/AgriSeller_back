@@ -3,8 +3,7 @@ import uuid
 from core.accounts.models import User
 from core.localisation.models import Ville
 from core.producteurs.models import ProducteurPersonnePhysique, ProducteurOrganisation
-# from core.transactions.models import Commande
-# from core.validation.models import Validation
+from core.commercants.models import AcheteurPersonnePhysique, AcheteurOrganisation
 from core.productions.models import Culture
 
 
@@ -37,7 +36,6 @@ class Offre(models.Model):
     # Détails du produit
     culture = models.ForeignKey(Culture, on_delete=models.PROTECT, null=True, blank=True, help_text="Culture associée à l'offre")
     quantite_initiale = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    seuil_alerte = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     unite = models.CharField(max_length=10, choices=UNITES)
     prix_unitaire = models.DecimalField(max_digits=10, decimal_places=2)
     est_valide = models.BooleanField(default=True, help_text="Indique si l'offre est validée par le centre de validation")
@@ -142,12 +140,28 @@ class Commande(models.Model):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     offre = models.ForeignKey(Offre, on_delete=models.PROTECT, related_name='commandes')
-    client = models.ForeignKey(User, on_delete=models.PROTECT, related_name='commandes_client')
+    # client = models.ForeignKey(User, on_delete=models.PROTECT, related_name='commandes_client')
     validateur = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name='commandes_validees')
     quantite = models.PositiveIntegerField()
     date_creation = models.DateTimeField(auto_now_add=True, null=True, blank=True)
     date_maj = models.DateTimeField(auto_now=True)
     statut = models.CharField(max_length=20, choices=Statut.choices, default=Statut.EN_ATTENTE)
+
+    # Relations polymorphiques avec les acheteurs
+    acheteur_physique = models.ForeignKey(
+        AcheteurPersonnePhysique,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='commandes_physique'
+    )
+    acheteur_organisation = models.ForeignKey(
+        AcheteurOrganisation,
+        on_delete=models.CASCADE, 
+        null=True,
+        blank=True,
+        related_name='commandes_organisation'
+    )
 
 
     class Meta:
@@ -158,6 +172,27 @@ class Commande(models.Model):
 
     def __str__(self):
         return f"CMD-{self.id}"
+
+    @property
+    def acheteur(self):
+        """Retourne le producteur quel que soit son type"""
+        return self.acheteur_physique or self.acheteur_organisation
+
+    def get_acheteur_details(self):
+        """Retourne les détails spécifiques au type de acheteur"""
+        if self.acheteur_physique:
+            return {
+                'type': 'physique',
+                'nom_complet': f"{self.acheteur_physique.user.first_name} {self.acheteur_physique.user.last_name}",
+                'contact': self.acheteur_physique.user.telephone
+            }
+        elif self.acheteur_organisation:
+            return {
+                'type': 'organisation',
+                'raison_sociale': self.acheteur_organisation.raison_sociale,
+                'contact': self.acheteur_organisation.user.telephone
+            }
+        return None
 
 
 class PropositionProducteur(models.Model):

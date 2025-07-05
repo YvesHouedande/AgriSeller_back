@@ -21,7 +21,7 @@ class OffreAdmin(admin.ModelAdmin):
             'fields': ('id', 'nom_produit', 'producteur_physique', 'producteur_organisation', 'description')
         }),
         ('Détails', {
-            'fields': ('culture', 'quantite_initiale', 'seuil_alerte', 'unite', 'prix_unitaire')
+            'fields': ('culture', 'quantite_initiale', 'unite', 'prix_unitaire')
         }),
         ('Statut', {
             'fields': ('est_valide', 'est_active')
@@ -40,10 +40,10 @@ class OffreAdmin(admin.ModelAdmin):
 
 @admin.register(Commande)
 class CommandeAdmin(admin.ModelAdmin):
-    list_display = ('id', 'short_id', 'client', 'offre', 'quantite', 'statut', 'date_creation')
+    list_display = ('id', 'short_id', 'acheteur', 'offre', 'quantite', 'statut', 'date_creation')
     list_display_links = ('id', 'short_id')
     list_filter = ('statut', 'offre__culture')
-    search_fields = ('id', 'client__username', 'offre__nom_produit')
+    search_fields = ('id', 'offre__nom_produit')
     readonly_fields = ('id', 'date_creation', 'date_maj')
     date_hierarchy = 'date_creation'
     

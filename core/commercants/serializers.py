@@ -5,19 +5,18 @@ from core.localisation.serializers import VilleSerializer, RegionSerializer, Pay
 
 class BaseAcheteurSerializer(serializers.ModelSerializer):
     ville = VilleSerializer(read_only=True)
-    region = RegionSerializer(read_only=True)
-    pays = PaysSerializer(read_only=True)
+    user = serializers.SerializerMethodField(read_only=True)
     
-    ville_id = serializers.UUIDField(write_only=True)
-    region_id = serializers.UUIDField(write_only=True)
-    pays_id = serializers.UUIDField(write_only=True)
-
+    def get_user(self, obj):
+        from core.accounts.serializers import UserSerializer
+        return UserSerializer(obj.user).data
+    
     class Meta:
         fields = [
-            'id', 'user', 'experience_commerciale', 'type_acheteur',
+            'id', 'user', 'experience_commerciale', 
             'site_web', 'facebook', 'whatsapp', 'instagram',
-            'adresse', 'ville', 'region', 'pays', 'ville_id', 'region_id', 'pays_id',
-            'horaires_ouverture', 'actif', 'date_creation', 'date_maj'
+            'adresse', 'ville', 'horaires_ouverture', 'actif',
+            'date_creation', 'date_maj'
         ]
 
 class AcheteurPersonnePhysiqueSerializer(BaseAcheteurSerializer):

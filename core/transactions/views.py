@@ -77,16 +77,6 @@ class MouvementStockViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         mouvement = serializer.save(utilisateur=self.request.user)
-        
-        # Notification si stock faible
-        if mouvement.offre.quantite_actuelle < mouvement.offre.seuil_alerte:
-            create_and_send_notification(
-                mouvement.offre.producteur.user,
-                'STOCK_FAIBLE',
-                'Stock faible',
-                f"Le stock de {mouvement.offre.nom_produit} est faible",
-                {'offre_id': str(mouvement.offre.id)}
-            )
 
 
 

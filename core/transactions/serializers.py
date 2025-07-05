@@ -52,21 +52,43 @@ class CreateOffreSerializer(serializers.ModelSerializer):
         return offre
 
 
-# Gestion des commandes
+# serializers.py
 class CommandeSerializer(serializers.ModelSerializer):
     statut_display = serializers.CharField(source='get_statut_display', read_only=True)
-    
+    offre_details = serializers.SerializerMethodField()
+    acheteur_details = serializers.SerializerMethodField()
+    validateur_details = serializers.SerializerMethodField()
+
     class Meta:
         model = Commande
-        fields = ['id', 'offre', 'quantite', 'statut', 'statut_display', 'date_creation']
-        read_only_fields = ['statut', 'date_creation']
+        fields = [
+            'id',
+            'offre',
+            'offre_details',
+            'acheteur_details',
+            'validateur_details',
+            'quantite',
+            'statut',
+            'statut_display',
+            'date_creation',
+            'date_maj'
+        ]
+        read_only_fields = ['statut', 'date_creation', 'date_maj']
 
-    # def create(self, validated_data):
-    #     commande = Commande.objects.create(
-    #         client=self.context['request'].user,
-    #         **validated_data
-    #     )
-    #     return commande
+    def get_offre_details(self, obj):
+        from core.transactions.serializers import OffreSerializer
+        return OffreSerializer(obj.offre).data
+
+    def get_acheteur_details(self, obj):
+        return obj.get_acheteur_details()
+
+    def get_validateur_details(self, obj):
+        if not obj.validateur:
+            return None
+        return {
+            'id': obj.validateur.id,
+            'telephone': obj.validateur.telephone,
+        }
 
 
 

@@ -1,10 +1,9 @@
-# core/commercants/admin.py
 from django.contrib import admin
 from .models import AcheteurPersonnePhysique, AcheteurOrganisation
 
 @admin.register(AcheteurPersonnePhysique)
 class AcheteurPersonnePhysiqueAdmin(admin.ModelAdmin):
-    list_display = ('user', 'type_commerce', 'ville', 'actif')
+    list_display = ('id', 'user', 'type_commerce', 'ville', 'actif') 
     list_filter = ('type_commerce', 'ville', 'actif')
     search_fields = ('user__first_name', 'user__last_name', 'user__email')
     fieldsets = (
@@ -24,7 +23,7 @@ class AcheteurPersonnePhysiqueAdmin(admin.ModelAdmin):
 
 @admin.register(AcheteurOrganisation)
 class AcheteurOrganisationAdmin(admin.ModelAdmin):
-    list_display = ('raison_sociale', 'forme_juridique', 'type_commerce', 'ville', 'actif')
+    list_display = ('id', 'raison_sociale', 'forme_juridique', 'type_commerce', 'ville', 'actif')  
     list_filter = ('forme_juridique', 'type_commerce', 'ville', 'actif')
     search_fields = ('raison_sociale', 'numero_registre', 'nom_dirigeant')
     fieldsets = (

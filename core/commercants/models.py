@@ -1,45 +1,3 @@
-# from django.db import models
-# import uuid
-# from core.accounts.models import User
-# from core.localisation.models import Ville
-# from django.core.validators import RegexValidator 
-
-# class Acheteur(models.Model):
-#     TYPES_COMMERCANT = [
-#         ('DETAIL', 'Détaillant'),
-#         ('GROS', 'Grossiste'),
-#         ('EXPORT', 'Exportateur'),
-#         ('IMPORT', 'Importateur'),
-#     ]
-    
-#     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-#     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='commercant')
-#     type_commercant = models.CharField(max_length=10, choices=TYPES_COMMERCANT)
-#     raison_sociale = models.CharField(max_length=200, blank=True, null=True)
-#     numero_registre = models.CharField(max_length=50, blank=True)
-#     adresse = models.CharField(max_length=200, blank=True, null=True)
-#     ville = models.ForeignKey(Ville, on_delete=models.PROTECT, null=True, blank=True, related_name='commercants')
-#     numero_cni = models.CharField(max_length=20, blank=True, null=True)
-#     site_web = models.URLField(blank=True)
-#     actif = models.BooleanField(default=True)
-#     telephone = models.CharField(
-#         max_length=15,
-#         validators=[RegexValidator(regex=r'^\+?[0-9]{9,15}$')],
-#         blank=True
-#     )
-
-#     date_creation = models.DateTimeField(auto_now_add=True, null=True)
-#     date_maj = models.DateTimeField(auto_now=True, null=True)
-
-#     class Meta:
-#         verbose_name = "Commerçant"
-#         verbose_name_plural = "Commerçants"
-#         ordering = ['-date_creation']
-
-#     def __str__(self):
-#         return f"{self.raison_sociale} ({self.get_type_commercant_display()})"
-
-
 # core/commercants/models.py
 from django.db import models
 import uuid
@@ -131,6 +89,9 @@ class AcheteurPersonnePhysique(BaseAcheteur):
     class Meta:
         verbose_name = "Acheteur (Personne Physique)"
         verbose_name_plural = "Acheteurs (Personnes Physiques)"
+
+    def __str__(self):
+        return self.user.telephone
     
     def get_age(self):
         """Calcul de l'âge de l'acheteur"""
@@ -185,4 +146,4 @@ class AcheteurOrganisation(BaseAcheteur):
         verbose_name_plural = "Acheteurs (Organisations)"
     
     def __str__(self):
-        return self.raison_sociale
+        return self.raison_sociale 

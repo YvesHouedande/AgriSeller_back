@@ -67,36 +67,3 @@ class ProducteurOrganisationDetailSerializer(ProducteurOrganisationSerializer):
     class Meta(ProducteurOrganisationSerializer.Meta):
         depth = 1
 
-
-class OffreSerializer(serializers.ModelSerializer):
-    culture_nom = serializers.CharField(source='culture.nom', read_only=True)
-    lieu_retrait_nom = serializers.CharField(source='lieu_retrait.nom', read_only=True)
-    producteur_type = serializers.SerializerMethodField()
-    producteur_nom = serializers.SerializerMethodField()
-
-    class Meta:
-        model = Offre
-        fields = [
-            'id',
-            'nom_produit',
-            'description',
-            'quantite_initiale',
-            'quantite_actuelle',
-            'unite',
-            'prix_unitaire',
-            'est_active',
-            'date_publication',
-            'date_expiration',
-            'photo_produit',
-            'culture_nom',
-            'lieu_retrait_nom',
-            'producteur_type',
-            'producteur_nom'
-        ]
-    
-    def get_producteur_type(self, obj):
-        return obj.get_producteur_type()
-    
-    def get_producteur_nom(self, obj):
-        details = obj.get_producteur_details()
-        return details['raison_sociale'] if details['type'] == 'organisation' else details['nom_complet']

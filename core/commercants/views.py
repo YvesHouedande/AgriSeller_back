@@ -101,6 +101,10 @@ from .serializers import (
     AcheteurPersonnePhysiqueSerializer, 
     AcheteurOrganisationSerializer
 )
+from rest_framework.mixins import ListModelMixin
+from rest_framework.viewsets import GenericViewSet
+from core.transactions.models import Commande
+from core.transactions.serializers import CommandeSerializer
 
 class AcheteurPersonnePhysiqueViewSet(viewsets.ModelViewSet):
     queryset = AcheteurPersonnePhysique.objects.all()
@@ -122,3 +126,26 @@ class AcheteurOrganisationViewSet(viewsets.ModelViewSet):
         'actif': ['exact'],
         'date_creation': ['gte', 'lte'],
     }
+
+
+class CommandeAcheteurViewSet(ListModelMixin, GenericViewSet):
+    serializer_class = CommandeSerializer  
+    
+    def get_queryset(self):
+        acheteur_id = self.kwargs['id']
+        acheteur_type = self.kwargs['type']
+        
+        queryset = Commande.objects.select_related(
+            'offre',
+            'offre__culture',
+            'offre__lieu_retrait',
+            'validateur'
+        ).prefetch_related(
+            'offre__producteur_organisation',
+            'offre__producteur_physique'
+        ).order_by('-date_creation')
+        
+        if acheteur_type == 'organisation':
+            return queryset.filter(acheteur_organisation_id=acheteur_id)
+        else:
+            return queryset.filter(acheteur_physique_id=acheteur_id)

@@ -101,14 +101,22 @@ class User(AbstractUser):
         null=True,
         verbose_name='Photo de profil'
     )
+    class Meta:
+        verbose_name = 'Utilisateur'
+        verbose_name_plural = 'Utilisateurs'
 
     def __str__(self):
         name = self.get_full_name() or self.telephone
         return f"{name} ({self.get_role_display()})"
+        
+    def get_full_name(self):
+        """
+        Retourne le nom complet de l'utilisateur en combinant first_name et last_name.
+        Retourne None si aucun des deux champs n'est renseigné.
+        """
+        full_name = f"{self.first_name or ''} {self.last_name or ''}".strip()
+        return full_name if full_name else None 
 
-    class Meta:
-        verbose_name = 'Utilisateur'
-        verbose_name_plural = 'Utilisateurs'
 
     def get_producteur(self):
         """Retourne le producteur associé à cet utilisateur s'il existe"""
