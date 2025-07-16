@@ -3,7 +3,7 @@ name: Build and deploy
 on:
   push:
     branches:
-      - dev
+      - master
 
 jobs:
   build-and-deploy:
@@ -20,4 +20,4 @@ jobs:
           echo "Deployment completed!"
 
 
-          
+
